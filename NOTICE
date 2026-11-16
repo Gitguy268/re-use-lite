@@ -1,0 +1,20 @@
+RE-USE Lite
+Copyright (c) 2026 Lucas Van De Weerd
+Licensed under the MIT License (see LICENSE), except the files listed below.
+
+Apache License 2.0 files
+------------------------
+reuse_lite/mamba_torch.py and reuse_lite/scan_metal.py (SPDX-License-Identifier: Apache-2.0).
+Their forward math follows the reference path of mamba_ssm/modules/mamba_simple.py and
+selective_scan_ref in mamba_ssm/ops/selective_scan_interface.py from
+https://github.com/state-spaces/mamba
+Copyright (c) 2023 Tri Dao, Albert Gu. Licensed under the Apache License 2.0
+(see LICENSES/Apache-2.0.txt).
+
+Not included (downloaded into vendor/ by the user)
+--------------------------------------------------
+nvidia/NVIDIA-NemotronLabs-RE-USE: model weights, configuration and model code.
+Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. Licensed under OpenMDW-1.1.
+https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE
+
+Datasets used locally (not included): VoiceBank-DEMAND (CC-BY-4.0).

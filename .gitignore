@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+vendor/
+data/
+results/**/*.wav
+*.safetensors
+*.pt
+.DS_Store
+._*

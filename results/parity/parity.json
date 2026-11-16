@@ -1,0 +1,8 @@
+{
+ "cpu_vs_mps_sisdr": 67.77246845901684,
+ "port_vs_noisy_sisdr": 3.5058001177209706,
+ "port_cpu_vs_space_sisdr": 54.84650723924616,
+ "port_mps_vs_space_sisdr": 54.7444186685951,
+ "space_sr": 44100,
+ "space_len": 224909
+}
