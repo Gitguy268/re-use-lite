@@ -26,3 +26,12 @@ jobs:
 
       - name: Scan parity on CPU
         run: python scripts/test_scan.py
+
+      - name: Shell scripts
+        run: shellcheck -S warning run.sh scripts/*.sh web/start.command
+
+      - name: JavaScript syntax
+        run: |
+          node --check web/app.js
+          node --check web/worker.js
+          node --check scripts/web_check.mjs

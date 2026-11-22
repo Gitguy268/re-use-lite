@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RE-USE Lite</title>
+<meta name="description" content="Speech enhancement in your browser: noise, reverb, clipping and bandwidth repair. Runs locally on WebGPU.">
+<style>
+  :root { --bg:#f6f7f9; --fg:#14181f; --muted:#5b6575; --card:#fff; --line:#dde2ea; --acc:#2f6fed; --ok:#1d8a4a; --bad:#c43b3b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1217; --fg:#e7ebf1; --muted:#98a3b3; --card:#171b22; --line:#2a313c; --acc:#6c9bff; --ok:#4cc27a; --bad:#ff7a7a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 48px; }
+  h1 { font-size:28px; margin:0 0 4px; } .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  button, .btn { font:inherit; padding:10px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; text-decoration:none; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  select { font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  label.file input { display:none; }
+  #status { margin:12px 0 0; color:var(--muted); min-height:1.5em; }
+  #status.err { color:var(--bad); } #status.ok { color:var(--ok); }
+  .pair { display:grid; gap:12px; } .pair h3 { margin:0 0 6px; font-size:14px; color:var(--muted); font-weight:600; }
+  audio { width:100%; }
+  details { color:var(--muted); font-size:14px; } pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; max-height:260px; overflow:auto; }
+  .warn { border-color:var(--bad); }
+  footer { color:var(--muted); font-size:13px; } footer a { color:inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>RE-USE Lite</h1>
+  <p class="sub">Cleans up speech recordings: background noise, room echo, clipping and muffled bandwidth.
+    Everything runs on your own GPU in this tab; nothing is uploaded.</p>
+
+  <div id="unsupported" class="card warn" hidden></div>
+
+  <div class="card">
+    <div class="row">
+      <label class="file btn">Choose audio file<input id="file" type="file" accept="audio/*,.wav,.flac,.mp3,.m4a,.ogg"></label>
+      <button id="rec">Record</button>
+      <button id="sample">Try the sample</button>
+      <label>Rate <select id="rate">
+        <option value="16000" selected>16 kHz (tested, fastest)</option>
+        <option value="8000">8 kHz (tested)</option>
+        <option value="keep">WAV: keep its rate (8-48 kHz)</option>
+        <option value="24000">24 kHz</option>
+        <option value="48000">48 kHz (slowest)</option>
+      </select></label>
+    </div>
+    <p id="status" role="status">Choose a file, record, or try the sample.</p>
+  </div>
+
+  <div class="card pair" id="results" hidden>
+    <div><h3>Before</h3><audio id="before" controls></audio></div>
+    <div><h3>After</h3><audio id="after" controls></audio></div>
+    <div class="row"><a id="download" class="btn" download="enhanced.wav">Download enhanced WAV</a><span id="timing"></span></div>
+  </div>
+
+  <details><summary>Log</summary><pre id="log"></pre></details>
+
+  <footer>
+    <p>Model: <a href="https://huggingface.co/Lucasgitguy-co/RE-USE-Lite">RE-USE Lite</a>, an unofficial distilled student of
+      <a href="https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE">NVIDIA NemotronLabs RE-USE</a> (OpenMDW-1.1).
+      Runtime: <a href="https://github.com/0xShug0/audio.cpp">audio.cpp</a> (Apache-2.0) compiled to WebAssembly + WebGPU.
+      Needs a Chromium browser (Chrome, Edge, Brave) with WebGPU; Safari and Firefox are not supported yet.
+      Not affiliated with NVIDIA.</p>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

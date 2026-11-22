@@ -11,6 +11,14 @@ https://github.com/state-spaces/mamba
 Copyright (c) 2023 Tri Dao, Albert Gu. Licensed under the Apache License 2.0
 (see LICENSES/Apache-2.0.txt).
 
+scripts/convert_gguf.py and web/worker.js (SPDX-License-Identifier: Apache-2.0) adapt
+tests/reuse/convert_reuse_gguf.py and examples/webgpu/worker.js from audio.cpp,
+https://github.com/0xShug0/audio.cpp, Copyright 2026 ShugoAI LLC, Apache License 2.0.
+patches/audiocpp-reuse-depth.patch changes audio.cpp (same licence).
+
+release/inference.py (SPDX-License-Identifier: OpenMDW-1.1) follows the inference math of
+NVIDIA's inference.py / inference_chunk.py and ships inside the OpenMDW-1.1 model repos.
+
 Not included (downloaded into vendor/ by the user)
 --------------------------------------------------
 nvidia/NVIDIA-NemotronLabs-RE-USE: model weights, configuration and model code.

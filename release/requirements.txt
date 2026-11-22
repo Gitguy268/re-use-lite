@@ -1,0 +1,6 @@
+torch>=2.4
+safetensors
+soundfile
+numpy
+einops
+huggingface_hub

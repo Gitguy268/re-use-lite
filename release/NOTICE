@@ -1,0 +1,29 @@
+RE-USE Lite (unofficial distillation of NVIDIA NemotronLabs RE-USE)
+Made by Lucas Van De Weerd (Hugging Face: Lucasgitguy-co). Not affiliated with or endorsed by NVIDIA.
+
+Model weights and model code
+----------------------------
+The weights are a distilled student of nvidia/NVIDIA-NemotronLabs-RE-USE (revision
+31f82f2efad1095034492f236e8dac9239ba713b). The encoder, decoders and the starting TFMamba blocks
+were copied from that checkpoint and then trained further against its outputs.
+https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE
+Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Licensed under the OpenMDW License Agreement, version 1.1 (OpenMDW-1.1); see LICENSE.
+models/*.py are NVIDIA's files, unchanged, with their SPDX headers.
+
+Pure-PyTorch Mamba (reuse_lite/mamba_torch.py, reuse_lite/scan_metal.py)
+-------------------------------------------------------------------------
+Forward math follows mamba_ssm (https://github.com/state-spaces/mamba),
+Copyright (c) 2023 Tri Dao, Albert Gu. Licensed under the Apache License 2.0.
+
+GGUF packages
+-------------
+Built and run with audio.cpp (https://github.com/0xShug0/audio.cpp), Copyright 2026 ShugoAI LLC,
+Apache License 2.0, at commit a6e32214e762aca6126eb7206a5497f11d064303 with
+audiocpp-reuse-depth.patch (lets the `reuse` family load 1 to 30 TFMamba blocks).
+
+Training data
+-------------
+VoiceBank-DEMAND (Valentini-Botinhao et al., University of Edinburgh), CC BY 4.0, used through
+https://huggingface.co/datasets/JacobLinCool/VoiceBank-DEMAND-16k. Not redistributed except the
+short before/after samples in samples/, which are taken from its test set.
