@@ -41,10 +41,15 @@ label/train/publish themselves.
   - Default rate is 16 kHz, the gated rate.
 - [x] smoke: prep → label → 2 steps → resume → 1 step. Batch 2 = 2.1 s/step, 6.2 GB; batch 4 = 4.2 s/step, 11 GB.
 - [x] data built: data/train (11,472 clips × 2 crops) + data/train_val (100 clips × 2), 24,000 samples per crop.
-- [ ] 2 label (user): `bash run.sh label`
-- [ ] 3 train (user): `bash run.sh train` (optional `bash run.sh peek` around step 5k)
-- [ ] 4 eval gate, export, convert, check (user): `bash run.sh all-after-train`
-- [ ] 5 publish (user): `bash run.sh publish`
+- [x] Modal route (2026-11-22, user asked to run on Modal): `modal_app.py`, `bash run.sh modal <stage>`.
+  - Image: torch 2.10 cu128 + pinned sha256 wheels mamba_ssm 2.3.2.post1, causal_conv1d 1.7.0. `REUSE_REQUIRE_MAMBA_SSM=1` makes a silent fallback to the torch scan impossible.
+  - L4 probe: teacher parity vs CPU PyTorch 55.8/70.2/70.4/84.2 dB (fp32) and 55.7–74 dB (TF32). Label 0.22 s/crop at batch 16. Train batch 2: 0.41 s/step (ckpt), 0.35 (no ckpt), 0.29 (no ckpt + TF32).
+  - prep on Modal CPU: identical rows, identical train meta.jsonl sha256 (c199921b…).
+  - Budget rule: spend ≤ credit left − $1; worst case per launch in ~/.local/state/re-use-lite-modal/ledger.json. Credit at start $6.60.
+- [ ] 2 label: Modal L4, fp32, batch 16 (`LABEL_BATCH=16 bash run.sh modal label --hours 1.8`)
+- [ ] 3 train: Modal L4, batch 2, 30k steps, TF32, no grad ckpt (`REUSE_TF32=1 bash run.sh modal train --hours 2.9 --extra=--no-grad-ckpt`)
+- [ ] 4 `bash run.sh modal download`, then eval gate, export, convert, check on the Mac: `bash run.sh all-after-train`
+- [ ] 5 publish: `bash run.sh publish` (refuses unless gate + check PASS)
 
 ## Log
 - 2026-11-09: project set up, scan test passes.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # RE-USE Lite: distil NVIDIA NemotronLabs RE-USE into a faster student, convert, check, publish.
-# Usage: bash run.sh <setup|test|bench|prep|label|train|status|peek|eval|export|convert|check|publish|all-after-train>
+# Usage: bash run.sh <setup|test|bench|prep|label|train|status|peek|eval|export|convert|check|publish|all-after-train|modal ...>
 # See COMMANDS.md for the full walkthrough. Long stages are resumable: run the same command again.
 set -euo pipefail
 
@@ -134,6 +134,12 @@ check)
   ;;
 all-after-train)
   bash "$0" eval && bash "$0" export && bash "$0" convert && bash "$0" check
+  ;;
+modal)
+  # GPU stages on Modal (see modal_app.py): probe, prep, label, train, status, download
+  shift
+  DEPTH="$DEPTH" STEPS="$STEPS" BATCH="$BATCH" uv run --no-project --python 3.12 --with 'modal==1.6.4' \
+    python modal_app.py "$@"
   ;;
 publish)
   "$PY" scripts/publish.py ${DRY_RUN:+--dry-run}
