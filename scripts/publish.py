@@ -43,7 +43,14 @@ cfg = json.load(open(J("out/normal/config.json")))
 depth = cfg["model_cfg"]["num_tfmamba"]
 R = {k: f"{a.org}/{a.name}{s}" for k, s in (("normal", ""), ("mlx", "-MLX"), ("gguf", "-GGUF"), ("space", "-web"))}
 URL = {k: f"https://huggingface.co/{'spaces/' if k == 'space' else ''}{v}" for k, v in R.items()}
-VERCEL_URL = "https://re-use-lite.vercel.app"  # replaced by the real URL after deploying
+VERCEL_URL = None  # set to the real URL after a deploy that passes the live browser check
+SPACE_URL = f"https://{a.org.lower()}-{(a.name + '-web').lower()}.static.hf.space/"  # direct page (not the iframe)
+
+
+def live_check(url):
+    r = subprocess.run(["node", J("scripts/web_check.mjs"), url],
+                       env={**os.environ, "PW_DIR": os.path.join(TOOLS, "webtest/node_modules")})
+    return r.returncode == 0
 
 
 def deploy_vercel():
@@ -63,7 +70,12 @@ def deploy_vercel():
 
 
 if not a.dry_run and not a.no_vercel:
-    VERCEL_URL = deploy_vercel() or VERCEL_URL
+    v = deploy_vercel()
+    if v and live_check(v + "/"):
+        VERCEL_URL = v
+    else:
+        print("Vercel page did not pass the live check (failed deploy, or a login wall from Deployment Protection);"
+              " the cards will not link it.")
 gguf_types = [t for t in ("f32", "f16")
               if check is None or check["formats"].get(f"gguf-re-use-lite-{t}", {}).get("pass")]
 
@@ -80,8 +92,11 @@ def results_md():
             r = v["student"][m] / v["teacher"][m] if v["teacher"][m] else float("nan")
             lines.append(f"| {names[k]} | {lab} | {v['noisy'][m]:.3f} | {v['teacher'][m]:.3f} | **{v['student'][m]:.3f}** | {r:.3f} |")
     lines.append("")
-    lines.append(f"Speed (PyTorch, Apple M4 GPU, VoiceBank test at 16 kHz, whole set): **{gate['speedup_vbd16']:.2f}x faster** "
-                 f"than the teacher on the same code and device. Parameters: {gate['params']['student']:,} vs "
+    sp = ", ".join(f"{k} {v['speedup']:.2f}x" for k, v in s.items())
+    lines.append(f"Speed (PyTorch, Apple M4 GPU, whole test set, same code and device for both): **{gate['speedup_vbd16']:.2f}x faster "
+                 f"at 16 kHz** ({sp}). The gate requires at least 5x at 16 kHz; at 8 kHz the fixed encoder/decoder cost "
+                 "weighs more, so the speed-up there can be just under 5x. "
+                 f"Parameters: {gate['params']['student']:,} vs "
                  f"{gate['params']['teacher']:,} ({gate['params']['teacher'] / gate['params']['student']:.1f}x smaller).")
     return "\n".join(lines) + "\n"
 
@@ -119,7 +134,8 @@ language:
 """
 ABOUT = f"""RE-USE Lite is an **unofficial, distilled student** of
 [NVIDIA NemotronLabs RE-USE](https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE), a universal speech
-enhancement model (noise, reverb, clipping, bandwidth loss; 8 to 48 kHz input). The student keeps the
+enhancement model (noise, reverb, clipping, bandwidth loss; 8 to 48 kHz input; quality measured at 8 and 16 kHz,
+other rates checked only for agreement between formats). The student keeps the
 teacher's encoder and decoders and **{depth} of its 30 TFMamba blocks**, then was trained on a Mac (Apple M4)
 to match the teacher's output. It is not affiliated with or endorsed by NVIDIA.
 
@@ -128,7 +144,7 @@ to match the teacher's output. It is not affiliated with or endorsed by NVIDIA.
 | PyTorch (safetensors) | [{R['normal']}]({URL['normal']}) |
 | MLX (Apple silicon) | [{R['mlx']}]({URL['mlx']}) |
 | GGUF (audio.cpp) | [{R['gguf']}]({URL['gguf']}) |
-| Browser (WebGPU) | [{R['space']}]({URL['space']}) · [{VERCEL_URL}]({VERCEL_URL}) |
+| Browser (WebGPU) | [{SPACE_URL}]({SPACE_URL}){(" · [" + VERCEL_URL + "](" + VERCEL_URL + ")") if VERCEL_URL else ""} ([Space page]({URL['space']})) |
 """
 LIMITS = """## Limits
 
@@ -145,7 +161,7 @@ LIMITS = """## Limits
 3. Loss: SEMamba-style magnitude, anti-wrapped phase, complex, time and consistency terms against the teacher,
    plus 0.3x the same against clean speech where valid. AdamW, cosine schedule, {steps} steps, batch {batch}.
 4. Published only after the gate passed: every PESQ/ESTOI/DNSMOS score at least 95% of the teacher's on all
-   three sets, and at least 5x faster.
+   three sets, and at least 5x faster at 16 kHz (PyTorch, Apple M4 GPU).
 
 ## License
 
@@ -339,10 +355,7 @@ cmd = [sys.executable, J("scripts/check_formats.py"), "--normal", dl["normal"], 
 r = subprocess.run(cmd)
 print("Hub download check:", "PASS" if r.returncode == 0 else "FAIL", f"(work dir {work})")
 # live browser check: the Space serves from <owner>-<name>.static.hf.space
-space_url = f"https://{a.org.lower()}-{(a.name + '-web').lower()}.static.hf.space/"
-for live in [space_url] + ([VERCEL_URL + "/"] if not a.no_vercel else []):
-    r = subprocess.run(["node", J("scripts/web_check.mjs"), live],
-                       env={**os.environ, "PW_DIR": os.path.join(TOOLS, "webtest/node_modules")})
-    print("live browser check", live, "PASS" if r.returncode == 0 else "FAIL (a Space can take a minute to build; rerun: "
-          f"PW_DIR=$TOOLS/webtest/node_modules node scripts/web_check.mjs {live})")
-print("Done:", *URL.values(), VERCEL_URL, sep="\n  ")
+ok = live_check(SPACE_URL)
+print("live browser check", SPACE_URL, "PASS" if ok else "FAIL (a Space can take a minute to build; rerun: "
+      f"PW_DIR=$TOOLS/webtest/node_modules node scripts/web_check.mjs {SPACE_URL})")
+print("Done:", *URL.values(), SPACE_URL, VERCEL_URL or "(no Vercel link)", sep="\n  ")

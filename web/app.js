@@ -11,7 +11,9 @@ function unsupported() {
   if (location.protocol === "file:")
     return "This page has to be served, not opened as a file. Double-click start.command (macOS) or run: python3 serve.py";
   if (!window.crossOriginIsolated)
-    return "The page is not cross-origin isolated (COOP/COEP headers missing), so WebAssembly threads cannot start.";
+    return window.top !== window
+      ? "IFRAME" // embedded (for example on huggingface.co/spaces): isolation does not hold in the frame
+      : "The page is not cross-origin isolated (COOP/COEP headers missing), so WebAssembly threads cannot start.";
   if (!navigator.gpu) return "This browser has no WebGPU. Use a current Chrome, Edge or Brave.";
   if (typeof WebAssembly.Suspending !== "function")
     return "This browser lacks WebAssembly JSPI. Use a current Chrome, Edge or Brave.";
@@ -20,7 +22,7 @@ function unsupported() {
 
 async function getModel() {
   if (modelBlob) return modelBlob;
-  status("Downloading the model (about 10 MB, once)…");
+  status("Downloading the model (about 9 MB, once)…");
   const r = await fetch(MODEL_URL);
   if (!r.ok) throw new Error(`Model download failed: HTTP ${r.status}`);
   modelBlob = await r.blob();
@@ -134,4 +136,10 @@ $("sample").onclick = async () => {
 };
 
 const why = unsupported();
-if (why) { $("unsupported").textContent = why; $("unsupported").hidden = false; setBusy(true); status("Not supported here.", "err"); }
+if (why === "IFRAME") {
+  const a = document.createElement("a");
+  a.href = location.href; a.target = "_blank"; a.rel = "noopener"; a.className = "btn";
+  a.textContent = "Open RE-USE Lite in its own tab";
+  $("unsupported").replaceChildren("This embedded view can't start WebAssembly threads. ", a);
+  $("unsupported").hidden = false; setBusy(true); status("Open the full page to use it.", "err");
+} else if (why) { $("unsupported").textContent = why; $("unsupported").hidden = false; setBusy(true); status("Not supported here.", "err"); }

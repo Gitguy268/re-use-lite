@@ -40,6 +40,18 @@ validation loss and saves the best model to `ckpt/run-d4/best/`. Check on it fro
 cd /Volumes/Untitled/re-use-lite && bash run.sh status
 ```
 
+**Optional early check (recommended around step 5,000, ~10 h in):** press Ctrl+C in the training
+window, then run:
+
+```sh
+cd /Volumes/Untitled/re-use-lite && bash run.sh peek
+```
+
+It scores the current best model on 100 test clips (~15 min) and prints the same table as the final gate, with a
+ratio column. Ratios already near 0.9 or above are a good sign; much lower ones mean you can stop early and
+ask me before spending the rest of the day. Then continue training with `bash run.sh train` (it resumes).
+The peek never counts as the publishing gate.
+
 Options (put them in front of the command, and use the same ones when resuming):
 - `STEPS=20000 bash run.sh train` for a shorter schedule (~12 h).
 - `DEPTH=3 bash run.sh train` trains a 3-block student instead (6.0x faster than the teacher at 16 kHz, but lower quality). It uses its own folder, `ckpt/run-d3`. Use the same `DEPTH=3` in front of every later command.
@@ -60,7 +72,12 @@ This runs four stages in a row (each can also be run alone):
 4. `bash run.sh check`: runs the same 9 clips through MLX, both GGUFs and the browser app (headless Chromium with WebGPU), compares each with PyTorch, and prints `CHECK PASS` or `CHECK FAIL`.
 
 Try the browser app yourself: double-click `out/web/start.command` (it opens http://localhost:8737 in your browser).
-It needs Brave, Chrome or Edge. Note: your default browser for links is Dia, so if it opens there, paste the address into Brave.
+It needs Brave, Chrome or Edge. It processes at 16 kHz by default (the rate the gate tests); the Rate menu offers 8, 24 and 48 kHz or the WAV's own rate. Note: your default browser for links is Dia, so if it opens there, paste the address into Brave.
+
+Speed is part of the gate: at least 5x faster at 16 kHz on the whole test set. The bench gave 5.04x and
+4 real clips gave 5.6x, so the margin is thin. The gate can fail on speed alone, for example if
+something else is using the GPU during eval, so close other heavy apps while it runs. At 8 kHz the
+speed-up is ~4.9x; the cards say so.
 
 If the gate fails, nothing gets published. The options then are training longer (`STEPS=45000 bash run.sh train` continues the same run with a longer schedule) or a deeper student (`DEPTH=5`, 4.4x faster, so it can't pass the 5x speed rule as it stands). Ask me and I'll look at `results/gate.json` with you.
 
@@ -97,6 +114,7 @@ Uploads skip the `._*` files that macOS writes on this drive.
 - Every format, using the untrained 4-block student, against PyTorch on CPU (9 clips at 8/16/44.1/48 kHz). Worst file: MLX 45.8 dB, GGUF f32 50.2 dB, GGUF f16 46.8 dB, browser (WebGPU) 47.6 dB. GGUF q8_0 failed (25 to 35 dB), so it is not shipped.
 - Smoke training run: 12 clips labelled; 2 steps, stop, resume, 1 more step; checkpoint, best/ and last/ written. Batch 2 used 6.2 GB at 2.1 s per step.
 - eval.py on 4 clips: the gate correctly fails the untrained student.
+- Browser: a 50 s recording through the file picker (chunked path), and the "open in its own tab" fallback when embedded in an iframe.
 - Browser UI: the "Try the sample" button in headless Chromium, both through the test server and through `serve.py` (the server `start.command` uses).
 - Not tested: the real label/train runs, and publishing (it needs the trained model; `DRY_RUN=1` was run).
 

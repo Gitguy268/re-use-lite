@@ -46,7 +46,63 @@ for (const f of live ? [] : fs.readdirSync(inDir).filter(f => f.endsWith(".wav")
   fs.writeFileSync(path.join(outDir, f), Buffer.from(bytes));
   console.log(`browser: ${f} ${(Date.now() - t0) / 1000}s`); n++;
 }
+// Long recording through the real file picker (> 15 s takes the chunked path), local mode only
+function readWavF32(file) { // mono float32 WAV as written by soundfile/check_formats
+  const b = fs.readFileSync(file); let p = 12, rate = 0;
+  while (p + 8 <= b.length) {
+    const id = b.toString("ascii", p, p + 4), size = b.readUInt32LE(p + 4);
+    if (id === "fmt ") rate = b.readUInt32LE(p + 12);
+    if (id === "data") return { rate, data: new Float32Array(b.buffer.slice(b.byteOffset + p + 8, b.byteOffset + p + 8 + size)) };
+    p += 8 + size + (size & 1);
+  }
+  throw new Error("no data chunk in " + file);
+}
+function writeWavF32(file, data, rate) {
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0); h.writeUInt32LE(36 + data.length * 4, 4); h.write("WAVE", 8); h.write("fmt ", 12);
+  h.writeUInt32LE(16, 16); h.writeUInt16LE(3, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(rate, 24);
+  h.writeUInt32LE(rate * 4, 28); h.writeUInt16LE(4, 32); h.writeUInt16LE(32, 34); h.write("data", 36); h.writeUInt32LE(data.length * 4, 40);
+  fs.writeFileSync(file, Buffer.concat([h, Buffer.from(data.buffer)]));
+}
+if (!live) {
+  const parts = fs.readdirSync(inDir).filter(f => f.endsWith("_16k.wav") && !f.startsWith("._")).sort()
+    .map(f => readWavF32(path.join(inDir, f)).data);
+  let total = [], n16 = 0;
+  while (n16 < 50 * 16000) for (const p of parts) { total.push(p); n16 += p.length; }
+  const long = new Float32Array(n16); let o = 0; for (const p of total) { long.set(p, o); o += p.length; }
+  const longPath = path.join(outDir, "_long_16k_input.wav");
+  writeWavF32(longPath, long, 16000);
+  await page.selectOption("#rate", "16000");
+  const t0 = Date.now();
+  await page.setInputFiles("#file", longPath);
+  await page.waitForFunction(() => /Done|Model|fail|error|exited/i.test(document.getElementById("status").textContent) &&
+    !/Downloading|Reading|Starting|Enhancing/.test(document.getElementById("status").textContent), null, { timeout: 600000 });
+  const r = await page.evaluate(async () => {
+    const st = document.getElementById("status").textContent;
+    const src = document.getElementById("after").src;
+    if (!/Done/.test(st)) return { st };
+    const b = await (await fetch(src)).arrayBuffer(); const v = new DataView(b); let p = 12;
+    while (p + 8 <= b.byteLength) {
+      const id = String.fromCharCode(v.getUint8(p), v.getUint8(p + 1), v.getUint8(p + 2), v.getUint8(p + 3)), size = v.getUint32(p + 4, true);
+      if (id === "data") {
+        const bits = v.getUint16(34, true), n = size / (bits / 8);
+        let sum = 0, finite = true;
+        for (let i = 0; i < n; i++) {
+          const x = bits === 32 ? v.getFloat32(p + 8 + i * 4, true) : v.getInt16(p + 8 + i * 2, true) / 32768;
+          if (!Number.isFinite(x)) finite = false; sum += x * x;
+        }
+        return { st, n, finite, rms: Math.sqrt(sum / n), timing: document.getElementById("timing").textContent };
+      }
+      p += 8 + size + (size & 1);
+    }
+    return { st, err: "no data chunk" };
+  });
+  console.log(`long file: ${long.length / 16000}s in ${(Date.now() - t0) / 1000}s ->`, JSON.stringify(r));
+  if (!(r.n === long.length && r.finite && r.rms > 1e-4)) { console.error("long-file check FAILED"); console.error(logs.slice(-30).join("\n")); process.exit(1); }
+  console.log("long file: OK");
+}
 // UI path once: the sample button end to end
+await page.evaluate(() => { document.getElementById("status").textContent = ""; });
 await page.click("#sample");
 await page.waitForFunction(() => /Done|error|fail/i.test(document.getElementById("status").textContent), null, { timeout: 300000 });
 const ui = await page.evaluate(() => ({ status: document.getElementById("status").textContent, timing: document.getElementById("timing").textContent }));

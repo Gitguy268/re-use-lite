@@ -35,10 +35,14 @@ label/train/publish themselves.
   - MLX 45.8 dB, GGUF f32 50.2 dB, GGUF f16 46.8 dB, browser 47.6 dB.
   - q8_0 25–35 dB, so it's dropped.
 - [x] teacher GGUF from our converter: tensors byte-identical to audio-cpp/RE-USE-GGUF; output identical (inf dB) under the patched runtime.
+- [x] browser extras:
+  - 50.7 s recording through the real file picker (chunked path): full length, finite, 22 s.
+  - In a non-isolated iframe, the page shows an "open in its own tab" link.
+  - Default rate is 16 kHz, the gated rate.
 - [x] smoke: prep → label → 2 steps → resume → 1 step. Batch 2 = 2.1 s/step, 6.2 GB; batch 4 = 4.2 s/step, 11 GB.
 - [x] data built: data/train (11,472 clips × 2 crops) + data/train_val (100 clips × 2), 24,000 samples per crop.
 - [ ] 2 label (user): `bash run.sh label`
-- [ ] 3 train (user): `bash run.sh train`
+- [ ] 3 train (user): `bash run.sh train` (optional `bash run.sh peek` around step 5k)
 - [ ] 4 eval gate, export, convert, check (user): `bash run.sh all-after-train`
 - [ ] 5 publish (user): `bash run.sh publish`
 

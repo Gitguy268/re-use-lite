@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # RE-USE Lite: distil NVIDIA NemotronLabs RE-USE into a faster student, convert, check, publish.
-# Usage: bash run.sh <setup|test|bench|prep|label|train|status|eval|export|convert|check|publish|all-after-train>
+# Usage: bash run.sh <setup|test|bench|prep|label|train|status|peek|eval|export|convert|check|publish|all-after-train>
 # See COMMANDS.md for the full walkthrough. Long stages are resumable: run the same command again.
 set -euo pipefail
 
@@ -96,6 +96,13 @@ status)
   tail -n 3 logs/label.log 2>/dev/null || true
   tail -n 5 "$RUN/train.log" 2>/dev/null || echo "no training log yet ($RUN/train.log)"
   pgrep -fl "label.py|distill.py" || echo "(no label/train process running)"
+  ;;
+peek)
+  # Early go/no-go: stop training with Ctrl+C, run this (~15 min, 100 clips), then resume training.
+  # Writes results/peek.json; it can never count as the publishing gate (not the full test set).
+  busy_check
+  need "$RUN/best/model.safetensors" "no best/ yet: train until the first validation (step 1000)"
+  caffeinate -i "$PY" scripts/eval.py --student "$RUN/best" --limit 100 --out results/peek.json 2>&1 | tee logs/peek.log
   ;;
 eval)
   busy_check
