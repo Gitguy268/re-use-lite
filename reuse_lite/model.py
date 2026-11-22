@@ -86,3 +86,42 @@ def enhance(model, cfg, wav, sr):
     amp_g[:, :, (zero_portion > 0.5)[0]] = 0
     out = mag_phase_istft(amp_g, pha_g, n_fft, hop, win, cf)
     return pad_or_trim_to_match(wav, out, pad_value=1e-8)
+
+
+def postprocess(amp_g):
+    """Upstream 'strange sweep artifact' fix, per item: zero frames that are mostly zero."""
+    m = torch.expm1(torch.relu(amp_g))
+    zero_portion = torch.sum(m == 0, 1) / m.shape[1]            # (B, T)
+    return amp_g.masked_fill((zero_portion > 0.5)[:, None, :], 0.0)
+
+
+def enhance_batch(model, cfg, wav, sr, raw=False):
+    """wav: (B, n) on the model's device. Same math as enhance(), batched; returns (B, n).
+
+    Gradient mode is the caller's (wrap in torch.no_grad() for inference).
+    With raw=True it skips the artifact fix and also returns (amp_g, pha_g, com_g), for training."""
+    n_fft, hop, win = stft_params(cfg, sr)
+    cf = cfg["model_cfg"]["compress_factor"]
+    mag, pha, _ = mag_phase_stft(wav, n_fft, hop, win, compress_factor=cf, center=True, addeps=False)
+    amp_g, pha_g, com_g = model(mag, pha)
+    amp = amp_g if raw else postprocess(amp_g)
+    out = mag_phase_istft(amp, pha_g, n_fft, hop, win, cf)
+    out = pad_or_trim_to_match(wav, out, pad_value=1e-8)
+    return (out, amp_g, pha_g, com_g) if raw else out
+
+
+def student_config(cfg, n_blocks):
+    """Config written next to student weights: upstream layout + model_type so mlx-audio detects it."""
+    scfg = copy.deepcopy(cfg)
+    scfg["model_cfg"]["num_tfmamba"] = n_blocks
+    scfg["model_type"] = "nemotron_reuse"
+    return scfg
+
+
+def load_student(path, device="cpu"):
+    """Load a student folder with config.json + model.safetensors (strict)."""
+    with open(os.path.join(path, "config.json")) as f:
+        cfg = json.load(f)
+    m = SEMamba(cfg)
+    m.load_state_dict(load_file(os.path.join(path, "model.safetensors")), strict=True)
+    return m.to(device).eval(), cfg

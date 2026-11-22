@@ -7,3 +7,11 @@ results/**/*.wav
 *.pt
 .DS_Store
 ._*
+logs/
+ckpt/
+out/
+results/eval/
+results/gate.json
+*.gguf
+*.f32
+node_modules/

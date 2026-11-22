@@ -1,0 +1,38 @@
+diff --git a/src/community_models/reuse/runtime.cpp b/src/community_models/reuse/runtime.cpp
+index 11467904..1880a580 100644
+--- a/src/community_models/reuse/runtime.cpp
++++ b/src/community_models/reuse/runtime.cpp
+@@ -66,7 +66,14 @@ public:
+         auto encoded = core::ensure_backend_addressable_layout(ctx,
+             modules::TransposeModule({{0, 3, 2, 1}, 4}).build(ctx,
+                 core::wrap_tensor(x, TensorShape::from_dims({batch, 64, time, frequency}))));
+-        for (int i = 0; i < 30; ++i) {
++        int blocks = 0;
++        while (weights_.count("TSMamba." + std::to_string(blocks) + ".time_mamba.output_proj.weight") != 0) {
++            ++blocks;
++        }
++        if (blocks < 1 || blocks > 30) {
++            throw std::runtime_error("RE-USE requires 1 to 30 TFMamba blocks");
++        }
++        for (int i = 0; i < blocks; ++i) {
+             const auto prefix = "TSMamba." + std::to_string(i);
+             const auto time_shape = TensorShape::from_dims({time_lanes, time, 64});
+             encoded = core::reshape_tensor(ctx, encoded, time_shape);
+@@ -86,7 +93,7 @@ public:
+                     bidirectional(encoded.tensor, prefix + ".freq_mamba", freq_state, freq_ids, freq_reverse),
+                     freq_shape));
+             encoded = core::reshape_tensor(ctx, encoded, TensorShape::from_dims({batch, time, frequency, 64}));
+-            if (i != 29) {
++            if (i != blocks - 1) {
+                 encoded = core::ensure_backend_addressable_layout(ctx,
+                     modules::TransposeModule({{0, 2, 1, 3}, 4}).build(ctx, encoded));
+             }
+@@ -455,7 +462,7 @@ std::shared_ptr<const ReuseAssets> load_reuse_assets(const std::filesystem::path
+     const auto & stft = json.require("stft_cfg");
+     if (io::json::require_i32(model, "hid_feature") != 64 || io::json::require_i32(model, "d_state") != 16 ||
+         io::json::require_i32(model, "d_conv") != 4 || io::json::require_i32(model, "expand") != 4 ||
+-        io::json::require_i32(model, "num_tfmamba") != 30 || io::json::require_string(model, "compress_factor") != "relu_log1p" ||
++        io::json::require_i32(model, "num_tfmamba") < 1 || io::json::require_i32(model, "num_tfmamba") > 30 || io::json::require_string(model, "compress_factor") != "relu_log1p" ||
+         io::json::require_i32(stft, "n_fft") != 320 || io::json::require_i32(stft, "hop_size") != 40 ||
+         io::json::require_i32(stft, "win_size") != 320 || io::json::require_i32(stft, "sampling_rate") != 8000) {
+         throw std::runtime_error("RE-USE requires the official SEMamba configuration");
