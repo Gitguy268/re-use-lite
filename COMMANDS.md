@@ -38,7 +38,6 @@ Every launch checks the Modal credit first and refuses unless what's left this m
 launch's worst case (GPU price × `--hours`). The `--hours` value is also a hard time limit. If training stops
 before the end, run the same `train` command again: it resumes from the last checkpoint on the volume
 (`re-use-lite-data`). `MODAL_GPU=A10G` (or another GPU) picks a different GPU.
-
 ## 1. Label (the teacher enhances every training crop)
 
 ```sh
