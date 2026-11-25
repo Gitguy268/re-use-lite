@@ -41,10 +41,22 @@ label/train/publish themselves.
   - Default rate is 16 kHz, the gated rate.
 - [x] smoke: prep → label → 2 steps → resume → 1 step. Batch 2 = 2.1 s/step, 6.2 GB; batch 4 = 4.2 s/step, 11 GB.
 - [x] data built: data/train (11,472 clips × 2 crops) + data/train_val (100 clips × 2), 24,000 samples per crop.
-- [ ] 2 label (user): `bash run.sh label`
-- [ ] 3 train (user): `bash run.sh train` (optional `bash run.sh peek` around step 5k)
-- [ ] 4 eval gate, export, convert, check (user): `bash run.sh all-after-train`
-- [ ] 5 publish (user): `bash run.sh publish`
+- [x] Modal route (2026-11-22, user asked to run on Modal): `modal_app.py`, `bash run.sh modal <stage>`.
+  - Image: torch 2.10 cu128 + pinned sha256 wheels mamba_ssm 2.3.2.post1, causal_conv1d 1.7.0. `REUSE_REQUIRE_MAMBA_SSM=1` makes a silent fallback to the torch scan impossible.
+  - L4 probe: teacher parity vs CPU PyTorch 55.8/70.2/70.4/84.2 dB (fp32) and 55.7–74 dB (TF32). Label 0.22 s/crop at batch 16. Train batch 2: 0.41 s/step (ckpt), 0.35 (no ckpt), 0.29 (no ckpt + TF32).
+  - prep on Modal CPU: identical rows, identical train meta.jsonl sha256 (c199921b…).
+  - Budget rule: spend ≤ credit left − $1; worst case per launch in ~/.local/state/re-use-lite-modal/ledger.json. Credit at start $6.60.
+- [x] 2 label: Modal L4, fp32, batch 16 (`LABEL_BATCH=16 bash run.sh modal label --hours 1.8`): 22,944 + 200 crops in 1.58 h (2026-11-22).
+- [x] 3 train: Modal L4, batch 2, 30k steps, TF32, no grad ckpt (`REUSE_TF32=1 bash run.sh modal train --hours 2.9 --extra=--no-grad-ckpt`).
+  - 2026-11-22 21:44 → 2026-11-23 00:03 UTC (2.3 h, 0.27 s/step), call fc-01M82J5E0VQBH270SD8S714B5E. No restarts.
+  - Val loss (vs teacher): 0.473 (step 1k) → 0.416 → 0.401 → 0.3966 (best, step 29k). Downloaded to ckpt/run-d4.
+- [ ] 4 gate (`bash run.sh all-after-train`, 2026-11-23): **FAILS**; eval was killed by Claude Code for low memory during the student pass on the degraded set (its teacher pass took 5.7 h, swapping).
+  - Teacher means: vbd16 PESQ 3.08 / ESTOI 0.89 / OVRL 3.29; vbd8 PESQ 3.91; degraded PESQ 2.55.
+  - Student/teacher ratio vbd16: PESQ **0.915**, ESTOI 0.972, OVRL 0.980, SIG 0.988, BAK 0.988, speed-up **4.3x**.
+  - vbd8: PESQ **0.939**, ESTOI 0.972, OVRL 0.997, SIG 1.005, BAK 0.991, speed-up 5.01x.
+  - So PESQ misses 0.95 on both sets and speed misses 5x at 16 kHz. Not published; export/convert/check did not run.
+  - Modal cost of the whole route: $3.57 (credit $6.60 → $3.03).
+- [ ] 5 publish: `bash run.sh publish` (refuses unless gate + check PASS)
 
 ## Log
 - 2026-11-09: project set up, scan test passes.

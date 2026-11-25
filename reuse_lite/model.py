@@ -12,19 +12,31 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VENDOR = os.path.join(ROOT, "vendor")
 
 
+MAMBA_IMPORT_ERROR = None
+
+
 def _install_mamba_shim(force_torch=False):
     if not force_torch:
         try:
             import mamba_ssm  # noqa: F401  (real CUDA kernels)
             return "mamba_ssm"
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            global MAMBA_IMPORT_ERROR
+            MAMBA_IMPORT_ERROR = repr(e)
     from reuse_lite.mamba_torch import Mamba
     sys.modules["mamba_ssm"] = types.SimpleNamespace(Mamba=Mamba)
     return "torch"
 
 
 BACKEND = _install_mamba_shim(force_torch=os.environ.get("REUSE_TORCH_MAMBA") == "1")
+if os.environ.get("REUSE_REQUIRE_MAMBA_SSM") == "1" and BACKEND != "mamba_ssm":
+    # fail loudly instead of running the ~100x slower pure-PyTorch scan on a paid GPU
+    raise RuntimeError(f"REUSE_REQUIRE_MAMBA_SSM=1 but mamba_ssm did not import: {MAMBA_IMPORT_ERROR}")
+if torch.cuda.is_available():
+    # Full float32 by default so CUDA matches CPU/MPS; REUSE_TF32=1 allows TF32 matmuls/convs (faster on Ampere/Ada)
+    _tf32 = os.environ.get("REUSE_TF32") == "1"
+    torch.backends.cudnn.allow_tf32 = _tf32
+    torch.backends.cuda.matmul.allow_tf32 = _tf32
 if VENDOR not in sys.path:
     sys.path.insert(0, VENDOR)
 from models.generator_SEMamba_time_d4 import SEMamba  # noqa: E402

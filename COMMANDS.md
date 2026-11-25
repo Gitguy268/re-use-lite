@@ -16,6 +16,28 @@ Before each long step:
 - Don't run another training job (heretic, MLX LoRA, other sessions) at the same time. `run.sh` refuses to start if it sees one; `FORCE=1` overrides.
 - If anything stops it (crash, reboot, Ctrl+C), **run the same command again**. Labelling continues from the last saved crop and training from the last checkpoint (saved every 500 steps).
 
+## Faster route: label and train on Modal (cloud GPU)
+
+Steps 1 and 2 can run on a Modal NVIDIA L4 instead of the Mac: about 4 h in total instead of about 25 h,
+for about $4 of Modal credit. The code is `modal_app.py`; `run.sh modal` runs it through uv with `modal==1.6.4`.
+On CUDA it uses the official `mamba_ssm` kernels (pinned wheel, sha256-checked). A probe confirmed the teacher on
+the L4 matches CPU PyTorch at 55.8–84 dB SI-SDR (`results/modal_probe_L4.json`).
+
+```sh
+cd /Volumes/Untitled/re-use-lite
+bash run.sh modal probe              # ~10 min, ~$0.10: parity + speed on the GPU
+bash run.sh modal prep               # CPU: builds the same data/train(_val) on the Modal volume
+LABEL_BATCH=16 bash run.sh modal label --hours 1.8
+REUSE_TF32=1 bash run.sh modal train --hours 2.9 --extra=--no-grad-ckpt   # detached; the Mac can sleep
+bash run.sh modal status             # last log lines and whether it is still running
+bash run.sh modal download           # best/, last/, train.log -> ckpt/run-d4
+bash run.sh all-after-train          # then on the Mac, as below (the speed gate is measured on MPS)
+```
+
+Every launch checks the Modal credit first and refuses unless what's left this month minus $1 covers the
+launch's worst case (GPU price × `--hours`). The `--hours` value is also a hard time limit. If training stops
+before the end, run the same `train` command again: it resumes from the last checkpoint on the volume
+(`re-use-lite-data`). `MODAL_GPU=A10G` (or another GPU) picks a different GPU.
 ## 1. Label (the teacher enhances every training crop)
 
 ```sh
